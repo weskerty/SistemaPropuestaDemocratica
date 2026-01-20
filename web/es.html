@@ -9,7 +9,7 @@
 </head>
 <body>
     <div id="app">
-        <h1> Propuestas ✨</h1>
+        <h1>✨ Lista de Propuestas ✨</h1>
         <div class="grid-gallery" id="issues-grid">
             <p>⌛ Cargando propuestas...</p>
         </div>
@@ -118,10 +118,10 @@
             
             const cm = document.getElementById('issue-comments');
             if (c.length === 0) {
-                cm.innerHTML = '<h2>Sin comentarios</h2>';
+                cm.innerHTML = '<h2>Sin comentarios aún</h2>';
             } else {
                 cm.innerHTML = `
-                    <h2>Comentarios 👥(${c.length})</h2>
+                    <h2>Comentarios (${c.length})</h2>
                     ${c.map(x => `
                         <div class="rss-item">
                             <h3><a href="https://github.com/${x.user.login}" target="_blank">${x.user.login}</a></h3>
