@@ -50,6 +50,7 @@
 
         const PAGE_SIZE_PROPOSALS = 24;
         const PAGE_SIZE_COMMENTS = 30;
+        const IMG_COLLAPSE_HEIGHT = 260;
 
         let INDEX = [];
         let CURRENT_DETAIL = null;
@@ -63,6 +64,33 @@
             md = window.markdownit({html:true, breaks:true, linkify:true});
             loadIndex();
         });
+
+        function wrapTallImages(container) {
+            container.querySelectorAll('.markdown-content > img, .markdown-content p > img').forEach(img => {
+                if (img.closest('.img-collapsed')) return;
+
+                const check = () => {
+                    if (img.naturalHeight <= IMG_COLLAPSE_HEIGHT) return;
+
+                    const wrap = document.createElement('div');
+                    wrap.className = 'img-collapsed';
+                    img.replaceWith(wrap);
+                    wrap.appendChild(img);
+
+                    const btn = document.createElement('button');
+                    btn.className = 'img-expand-btn';
+                    btn.type = 'button';
+                    btn.textContent = 'Mostrar completo';
+                    btn.onclick = () => {
+                        wrap.classList.add('is-expanded');
+                    };
+                    wrap.appendChild(btn);
+                };
+
+                if (img.complete) check();
+                else img.addEventListener('load', check, {once:true});
+            });
+        }
 
         async function loadIndex() {
             const grid = document.getElementById('proposals-grid');
@@ -159,6 +187,8 @@
                 window.anchors.add('.detail-head .markdown-content h1, .detail-head .markdown-content h2, .detail-head .markdown-content h3, .detail-head .markdown-content h4');
             }
 
+            wrapTallImages(content);
+
             renderCommentsSection();
         }
 
@@ -187,6 +217,7 @@
             const topLevel = CURRENT_DETAIL.comments || [];
 
             const next = topLevel.slice(commentsShown, commentsShown + PAGE_SIZE_COMMENTS);
+            const startIndex = list.children.length;
             list.insertAdjacentHTML('beforeend', next.map(c => `
                 <div class="comment-thread">
                     ${renderComment(c)}
@@ -198,6 +229,8 @@
                 </div>
             `).join(''));
             commentsShown += next.length;
+
+            Array.from(list.children).slice(startIndex).forEach(wrapTallImages);
 
             more.innerHTML = commentsShown < topLevel.length
                 ? `<button class="back-button" onclick="renderMoreComments()">Cargar mas comentarios</button>`
