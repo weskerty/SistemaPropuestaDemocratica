@@ -5,8 +5,7 @@
   --accent: #2997ff;
   --accent-soft: rgba(41, 151, 255, 0.16);
 
-  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text",
-    system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-sans:
 
   --text-caption: clamp(0.75rem, 0.7rem + 0.15vw, 0.8125rem);
   --text-body: clamp(0.9375rem, 0.85rem + 0.25vw, 1.0625rem);
