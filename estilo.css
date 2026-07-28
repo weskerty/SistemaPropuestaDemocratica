@@ -8,12 +8,12 @@
   --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text",
     system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 
-  --text-caption: 0.8125rem;
-  --text-body: 1.0625rem;
-  --text-title3: 1.25rem;
-  --text-title2: 1.75rem;
-  --text-title1: 2.125rem;
-  --text-display: clamp(2rem, 1rem + 4vw, 3.25rem);
+  --text-caption: clamp(0.75rem, 0.7rem + 0.15vw, 0.8125rem);
+  --text-body: clamp(0.9375rem, 0.85rem + 0.25vw, 1.0625rem);
+  --text-title3: clamp(1.0625rem, 0.95rem + 0.4vw, 1.25rem);
+  --text-title2: clamp(1.375rem, 1.15rem + 0.8vw, 1.75rem);
+  --text-title1: clamp(1.625rem, 1.3rem + 1.2vw, 2.125rem);
+  --text-display: clamp(1.75rem, 1.2rem + 2vw, 2.75rem);
 
   --weight-body: 400;
   --weight-emphasis: 590;
@@ -53,9 +53,22 @@
 
 * { box-sizing: border-box; }
 
+html {
+  background: var(--bg-canvas);
+  min-height: 100%;
+}
+
 body {
   margin: 0;
+  min-height: 100vh;
   background: var(--bg-canvas);
+  background-image:
+    linear-gradient(rgba(0,0,0,0.55), rgba(0,0,0,0.55)),
+    url('wallpaper.avif');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
   color: var(--ink-primary);
   font-family: var(--font-sans);
   font-size: var(--text-body);
@@ -63,25 +76,29 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-#app, #discussion-detail { max-width: 1100px; margin: 0 auto; padding: 24px 20px 80px; }
+#app, #discussion-detail {
+  max-width: min(1400px, 92vw);
+  margin: 0 auto;
+  padding: clamp(16px, 2vw, 32px) 0 80px;
+}
 
 h1.page-title {
   font-size: var(--text-display);
   font-weight: var(--weight-emphasis);
   letter-spacing: -0.02em;
-  margin: 24px 0 32px;
+  margin: 8px 0 clamp(16px, 2vw, 28px);
 }
 
 .grid-gallery {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr));
+  gap: clamp(12px, 1.2vw, 20px);
 }
 
 .proposal-card {
   cursor: pointer;
   position: relative;
-  padding: 22px;
+  padding: clamp(16px, 1.6vw, 24px);
   border-radius: var(--radius-card);
   background: var(--glass-card);
   backdrop-filter: blur(var(--blur-md)) saturate(160%);
@@ -151,7 +168,7 @@ h1.page-title {
 .back-button:hover { transform: translateX(-3px); }
 
 .detail-head {
-  padding: 28px;
+  padding: clamp(18px, 2.2vw, 32px);
   border-radius: var(--radius-card);
   background: var(--glass-card);
   backdrop-filter: blur(var(--blur-md)) saturate(160%);
@@ -254,15 +271,15 @@ h1.page-title {
 }
 
 .comment-replies {
-  margin: 10px 0 0 28px;
-  padding-left: 18px;
+  margin: 10px 0 0 clamp(12px, 3vw, 28px);
+  padding-left: clamp(10px, 2vw, 18px);
   border-left: var(--edge-hairline);
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
 
-.comment-replies .comment-item { padding: 16px 18px; }
+.comment-replies .comment-item { padding: 14px 16px; }
 
 .no-comments {
   color: var(--ink-secondary);
@@ -311,5 +328,13 @@ h1.page-title {
 @media (prefers-reduced-motion: reduce) {
   .proposal-card, .back-button, .new-proposal-link {
     transition-duration: 0.001ms;
+  }
+}
+
+@media (max-width: 480px) {
+  body { background-attachment: scroll; }
+  .proposal-card, .detail-head, .comment-item {
+    backdrop-filter: blur(var(--blur-sm)) saturate(140%);
+    -webkit-backdrop-filter: blur(var(--blur-sm)) saturate(140%);
   }
 }
