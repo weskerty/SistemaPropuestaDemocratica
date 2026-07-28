@@ -9,139 +9,153 @@
 </head>
 <body>
     <div id="app">
-        <h1> Propuestas ✨</h1>
-        <div class="grid-gallery" id="issues-grid">
-            <p>⌛ Cargando propuestas...</p>
+        <h1 class="page-title">Propuestas</h1>
+        <div class="grid-gallery" id="proposals-grid">
+            <p class="state-msg">Cargando propuestas...</p>
         </div>
     </div>
 
-    <div id="issue-detail" style="display:none;">
-        <button class="back-button" onclick="vL()">← Volver a la Lista</button>
-        <div id="issue-content"></div>
-        <div id="issue-comments"></div>
+    <div id="discussion-detail" style="display:none;">
+        <button class="back-button" onclick="vL()">&larr; Volver a la lista</button>
+        <div id="discussion-content"></div>
+        <div id="discussion-comments"></div>
     </div>
 
     <script>
-        const O = 'weskerty';
-        const R = 'SistemaPropuestaDemocratica';
-        const A = `https://api.github.com/repos/${O}/${R}`;
-        let D = [];
-        let C = {};
+        const OWNER = 'weskerty';
+        const REPO = 'SistemaPropuestaDemocratica';
+        const NEW_DISCUSSION_URL = `https://github.com/${OWNER}/${REPO}/discussions/new`;
+        const REACTION_EMOJI = {THUMBS_UP:'👍',THUMBS_DOWN:'👎',LAUGH:'😄',HOORAY:'🎉',CONFUSED:'😕',HEART:'❤️',ROCKET:'🚀',EYES:'👀'};
+
+        let INDEX = [];
         let md;
 
         window.addEventListener('load', () => {
-            md = window.markdownit({html: true, breaks: true, linkify: true});
-            lI();
+            md = window.markdownit({html:true, breaks:true, linkify:true});
+            loadIndex();
         });
 
-        async function lI() {
+        async function loadIndex() {
+            const grid = document.getElementById('proposals-grid');
             try {
-                const r = await fetch(`${A}/issues?state=open&per_page=100`);
-                if (!r.ok) throw new Error(`Error: ${r.status}`);
-                D = await r.json();
-                rG();
+                const r = await fetch(`Data/index.json?t=${Date.now()}`);
+                if (!r.ok) throw new Error(`Error ${r.status}`);
+                INDEX = await r.json();
+                renderGrid();
             } catch (e) {
-                document.getElementById('issues-grid').innerHTML = `<p>Error: ${e.message}</p>`;
+                grid.innerHTML = `<p class="state-msg">Error cargando propuestas: ${e.message}</p>`;
             }
         }
 
-        function eI(b) {
-            if (!b) return null;
-            const m = b.match(/!\[.*?\]\((.*?)\)/);
-            return m ? m[1] : null;
+        function reactionsBar(reactions) {
+            const items = Object.entries(reactions || {}).map(([k,v]) => {
+                const emoji = REACTION_EMOJI[k] || k;
+                return `<span class="reaction-chip">${emoji} ${v}</span>`;
+            }).join('');
+            return items ? `<div class="reactions-bar">${items}</div>` : '';
         }
 
-        function rG() {
-            const g = document.getElementById('issues-grid');
-            if (D.length === 0) {
-                g.innerHTML = '<p>No hay propuestas abiertas</p>';
+        function renderGrid() {
+            const grid = document.getElementById('proposals-grid');
+            if (INDEX.length === 0) {
+                grid.innerHTML = '<p class="state-msg">No hay propuestas abiertas</p>';
                 return;
             }
-            
-            g.innerHTML = D.map(i => {
-                const img = eI(i.body);
-                return `
-                    <div class="issue-card" onclick="vI(${i.number})">
-                        ${img ? `<img src="${img}" alt="${i.title}" loading="lazy" />` : `<div class="placeholder">${i.title}</div>`}
-                        <div class="issue-title">${i.title}</div>
+            grid.innerHTML = INDEX.map(p => `
+                <div class="proposal-card" onclick="viewProposal('${p.slug}')">
+                    <span class="category-pill">${p.categoryEmoji || ''} ${p.category}</span>
+                    <h3>${p.title}</h3>
+                    ${reactionsBar(p.reactions)}
+                    <div class="proposal-meta">
+                        <span>💬 ${p.commentCount}</span>
+                        ${p.isAnswered ? '<span class="answered-badge">Respondida</span>' : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function viewProposal(slug) {
+            document.getElementById('app').style.display = 'none';
+            document.getElementById('discussion-detail').style.display = 'block';
+            window.scrollTo({top:0, behavior:'smooth'});
+
+            const content = document.getElementById('discussion-content');
+            content.innerHTML = '<p class="state-msg">Cargando propuesta...</p>';
+
+            try {
+                const r = await fetch(`Data/${slug}.json?t=${Date.now()}`);
+                if (!r.ok) throw new Error(`Error ${r.status}`);
+                const data = await r.json();
+                renderDetail(data);
+            } catch (e) {
+                content.innerHTML = `<p class="state-msg">Error: ${e.message}</p>`;
+            }
+        }
+
+        function renderDetail(d) {
+            const content = document.getElementById('discussion-content');
+            content.innerHTML = `
+                <div class="detail-head">
+                    <span class="category-pill">${d.categoryEmoji || ''} ${d.category}</span>
+                    <h1>${d.title}${d.isAnswered ? ' <span class=\"answered-badge\">✓ Respondida</span>' : ''}</h1>
+                    <div class="author-row">
+                        ${d.avatar ? `<img src="${d.avatar}" alt="">` : ''}
+                        <a href="https://github.com/${d.author}" target="_blank" style="color:inherit;text-decoration:none;">${d.author || 'anonimo'}</a>
+                        <span>· #${d.number} · 💬 ${d.commentCount}</span>
+                    </div>
+                    ${reactionsBar(d.reactions)}
+                    <div class="markdown-content">${md.render(d.body || '')}</div>
+                </div>
+            `;
+
+            const commentsEl = document.getElementById('discussion-comments');
+            const topLevel = d.comments || [];
+
+            if (topLevel.length === 0) {
+                commentsEl.innerHTML = '<div class="comments-section"><p class="no-comments">Sin comentarios aun</p></div>';
+            } else {
+                commentsEl.innerHTML = `
+                    <div class="comments-section">
+                        <h2>Comentarios (${topLevel.length})</h2>
+                        ${topLevel.map(c => `
+                            <div class="comment-thread">
+                                ${renderComment(c)}
+                                ${c.replies && c.replies.length ? `
+                                    <div class="comment-replies">
+                                        ${c.replies.map(r => renderComment(r)).join('')}
+                                    </div>
+                                ` : ''}
+                            </div>
+                        `).join('')}
                     </div>
                 `;
-            }).join('');
-        }
-
-        async function vI(n) {
-            document.getElementById('app').style.display = 'none';
-            document.getElementById('issue-detail').style.display = 'block';
-            
-            const i = D.find(x => x.number === n);
-            if (!i) return;
-            
-            const ic = document.getElementById('issue-content');
-            ic.innerHTML = `<p>⌛ Cargando detalles...</p>`;
-            
-            if (!C[n]) {
-                try {
-                    const [cm, rc] = await Promise.all([
-                        fetch(`${A}/issues/${n}/comments`).then(r => r.json()),
-                        fetch(`${A}/issues/${n}/reactions`, {
-                            headers: {'Accept': 'application/vnd.github.squirrel-girl-preview+json'}
-                        }).then(r => r.json())
-                    ]);
-                    
-                    C[n] = {i: i, c: cm, r: rc};
-                } catch (e) {
-                    ic.innerHTML = `<p>Error: ${e.message}</p>`;
-                    return;
-                }
             }
-            
-            rD(n);
-        }
 
-        function rD(n) {
-            const {i, c, r} = C[n];
-            
-            const rc = {};
-            r.forEach(x => rc[x.content] = (rc[x.content] || 0) + 1);
-            
-            const re = Object.entries(rc).map(([k, v]) => {
-                const e = {'heart': '❤️', 'thumbs_up': '👍', 'thumbs_down': '👎', 'laugh': '😄', 'hooray': '🎉', 'confused': '😕', 'rocket': '🚀', 'eyes': '👀'}[k] || k;
-                return `${e} ${v}`;
-            }).join(' ');
-            
-            document.getElementById('issue-content').innerHTML = `
-                <h1>${i.title}</h1>
-                <p style="color:#888;">Por <a href="https://github.com/${i.user.login}" target="_blank" style="color:#58a6ff;text-decoration:none;">${i.user.login}</a> · Issue #${i.number} · 💬 ${i.comments} comentarios</p>
-                ${re ? `<div class="reactions-bar"><strong>Votado:</strong> ${re}</div>` : ''}
-                <div class="markdown-content">${md.render(i.body || '')}</div>
+            commentsEl.innerHTML += `
+                <div style="text-align:center;">
+                    <a class="new-proposal-link" href="${NEW_DISCUSSION_URL}" target="_blank">Crear nueva propuesta</a>
+                </div>
             `;
-            
-            const cm = document.getElementById('issue-comments');
-            if (c.length === 0) {
-                cm.innerHTML = '<h2>Sin comentarios</h2>';
-            } else {
-                cm.innerHTML = `
-                    <h2>Comentarios 👥(${c.length})</h2>
-                    ${c.map(x => `
-                        <div class="rss-item">
-                            <h3><a href="https://github.com/${x.user.login}" target="_blank">${x.user.login}</a></h3>
-                            <div class="markdown-content">${md.render(x.body)}</div>
-                        </div>
-                    `).join('')}
-                `;
-            }
-            
-            cm.innerHTML += `
-                <div style="text-align:center;margin-top:30px;">
-                    <a href="https://github.com/weskerty/SistemaPropuestaDemocratica/issues/new" target="_blank" style="display:inline-block;padding:12px 24px;background:#1a73e8;color:white;text-decoration:none;border-radius:6px;font-weight:bold;">Crear Nueva Propuesta</a>
+        }
+
+        function renderComment(c) {
+            return `
+                <div class="comment-item${c.isAnswer ? ' is-answer' : ''}">
+                    ${c.isAnswer ? '<span class="answer-tag">✓ Respuesta aceptada</span>' : ''}
+                    <div class="author-row">
+                        ${c.avatar ? `<img src="${c.avatar}" alt="">` : ''}
+                        <a href="https://github.com/${c.author}" target="_blank" style="color:inherit;text-decoration:none;">${c.author || 'anonimo'}</a>
+                    </div>
+                    <div class="markdown-content">${md.render(c.body || '')}</div>
+                    ${reactionsBar(c.reactions)}
                 </div>
             `;
         }
 
         function vL() {
-            document.getElementById('issue-detail').style.display = 'none';
+            document.getElementById('discussion-detail').style.display = 'none';
             document.getElementById('app').style.display = 'block';
-            window.scrollTo({top: 0, behavior: 'smooth'});
+            window.scrollTo({top:0, behavior:'smooth'});
         }
     </script>
 </body>
