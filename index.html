@@ -4,7 +4,23 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Paraguay Libre - Propuestas</title>
+    <meta name="description" content="">
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Paraguay Libre - Propuestas">
+    <meta property="og:description" content="">
+    <meta property="og:image" content="">
+    <meta property="og:url" content="">
+
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Paraguay Libre - Propuestas">
+    <meta name="twitter:description" content="">
+    <meta name="twitter:image" content="">
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/markdown-it/13.0.1/markdown-it.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/anchor-js/anchor.min.js"></script>
     <link rel="stylesheet" href="estilo.css">
 </head>
 <body>
@@ -13,12 +29,17 @@
         <div class="grid-gallery" id="proposals-grid">
             <p class="state-msg">Cargando propuestas...</p>
         </div>
+        <div id="proposals-more" style="text-align:center;"></div>
     </div>
 
     <div id="discussion-detail" style="display:none;">
         <button class="back-button" onclick="vL()">&larr; Volver a la lista</button>
         <div id="discussion-content"></div>
         <div id="discussion-comments"></div>
+        <div style="text-align:center;display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:12px;">
+            <button class="back-button" onclick="vL()">&larr; Volver a la lista</button>
+            <a class="new-proposal-link" id="new-proposal-bottom" href="#" target="_blank">Crear nueva propuesta</a>
+        </div>
     </div>
 
     <script>
@@ -27,8 +48,16 @@
         const NEW_DISCUSSION_URL = `https://github.com/${OWNER}/${REPO}/discussions/new`;
         const REACTION_EMOJI = {THUMBS_UP:'👍',THUMBS_DOWN:'👎',LAUGH:'😄',HOORAY:'🎉',CONFUSED:'😕',HEART:'❤️',ROCKET:'🚀',EYES:'👀'};
 
+        const PAGE_SIZE_PROPOSALS = 24;
+        const PAGE_SIZE_COMMENTS = 30;
+
         let INDEX = [];
+        let CURRENT_DETAIL = null;
+        let proposalsShown = 0;
+        let commentsShown = 0;
         let md;
+
+        document.getElementById('new-proposal-bottom').href = NEW_DISCUSSION_URL;
 
         window.addEventListener('load', () => {
             md = window.markdownit({html:true, breaks:true, linkify:true});
@@ -41,7 +70,9 @@
                 const r = await fetch(`Data/index.json?t=${Date.now()}`);
                 if (!r.ok) throw new Error(`Error ${r.status}`);
                 INDEX = await r.json();
-                renderGrid();
+                proposalsShown = 0;
+                grid.innerHTML = '';
+                renderMoreProposals();
             } catch (e) {
                 grid.innerHTML = `<p class="state-msg">Error cargando propuestas: ${e.message}</p>`;
             }
@@ -55,13 +86,8 @@
             return items ? `<div class="reactions-bar">${items}</div>` : '';
         }
 
-        function renderGrid() {
-            const grid = document.getElementById('proposals-grid');
-            if (INDEX.length === 0) {
-                grid.innerHTML = '<p class="state-msg">No hay propuestas abiertas</p>';
-                return;
-            }
-            grid.innerHTML = INDEX.map(p => `
+        function proposalCardHtml(p) {
+            return `
                 <div class="proposal-card" onclick="viewProposal('${p.slug}')">
                     <span class="category-pill">${p.categoryEmoji || ''} ${p.category}</span>
                     <h3>${p.title}</h3>
@@ -71,7 +97,26 @@
                         ${p.isAnswered ? '<span class="answered-badge">Respondida</span>' : ''}
                     </div>
                 </div>
-            `).join('');
+            `;
+        }
+
+        function renderMoreProposals() {
+            const grid = document.getElementById('proposals-grid');
+            const more = document.getElementById('proposals-more');
+
+            if (INDEX.length === 0) {
+                grid.innerHTML = '<p class="state-msg">No hay propuestas abiertas</p>';
+                more.innerHTML = '';
+                return;
+            }
+
+            const next = INDEX.slice(proposalsShown, proposalsShown + PAGE_SIZE_PROPOSALS);
+            grid.insertAdjacentHTML('beforeend', next.map(proposalCardHtml).join(''));
+            proposalsShown += next.length;
+
+            more.innerHTML = proposalsShown < INDEX.length
+                ? `<button class="back-button" onclick="renderMoreProposals()">Cargar mas propuestas</button>`
+                : '';
         }
 
         async function viewProposal(slug) {
@@ -81,12 +126,14 @@
 
             const content = document.getElementById('discussion-content');
             content.innerHTML = '<p class="state-msg">Cargando propuesta...</p>';
+            document.getElementById('discussion-comments').innerHTML = '';
 
             try {
                 const r = await fetch(`Data/${slug}.json?t=${Date.now()}`);
                 if (!r.ok) throw new Error(`Error ${r.status}`);
-                const data = await r.json();
-                renderDetail(data);
+                CURRENT_DETAIL = await r.json();
+                commentsShown = 0;
+                renderDetail(CURRENT_DETAIL);
             } catch (e) {
                 content.innerHTML = `<p class="state-msg">Error: ${e.message}</p>`;
             }
@@ -108,34 +155,53 @@
                 </div>
             `;
 
+            if (window.anchors) {
+                window.anchors.add('.detail-head .markdown-content h1, .detail-head .markdown-content h2, .detail-head .markdown-content h3, .detail-head .markdown-content h4');
+            }
+
+            renderCommentsSection();
+        }
+
+        function renderCommentsSection() {
             const commentsEl = document.getElementById('discussion-comments');
-            const topLevel = d.comments || [];
+            const topLevel = CURRENT_DETAIL.comments || [];
 
             if (topLevel.length === 0) {
                 commentsEl.innerHTML = '<div class="comments-section"><p class="no-comments">Sin comentarios aun</p></div>';
-            } else {
-                commentsEl.innerHTML = `
-                    <div class="comments-section">
-                        <h2>Comentarios (${topLevel.length})</h2>
-                        ${topLevel.map(c => `
-                            <div class="comment-thread">
-                                ${renderComment(c)}
-                                ${c.replies && c.replies.length ? `
-                                    <div class="comment-replies">
-                                        ${c.replies.map(r => renderComment(r)).join('')}
-                                    </div>
-                                ` : ''}
-                            </div>
-                        `).join('')}
-                    </div>
-                `;
+                return;
             }
 
-            commentsEl.innerHTML += `
-                <div style="text-align:center;">
-                    <a class="new-proposal-link" href="${NEW_DISCUSSION_URL}" target="_blank">Crear nueva propuesta</a>
+            commentsEl.innerHTML = `
+                <div class="comments-section">
+                    <h2>Comentarios (${topLevel.length})</h2>
+                    <div id="comments-list"></div>
+                    <div id="comments-more" style="text-align:center;"></div>
                 </div>
             `;
+            renderMoreComments();
+        }
+
+        function renderMoreComments() {
+            const list = document.getElementById('comments-list');
+            const more = document.getElementById('comments-more');
+            const topLevel = CURRENT_DETAIL.comments || [];
+
+            const next = topLevel.slice(commentsShown, commentsShown + PAGE_SIZE_COMMENTS);
+            list.insertAdjacentHTML('beforeend', next.map(c => `
+                <div class="comment-thread">
+                    ${renderComment(c)}
+                    ${c.replies && c.replies.length ? `
+                        <div class="comment-replies">
+                            ${c.replies.map(r => renderComment(r)).join('')}
+                        </div>
+                    ` : ''}
+                </div>
+            `).join(''));
+            commentsShown += next.length;
+
+            more.innerHTML = commentsShown < topLevel.length
+                ? `<button class="back-button" onclick="renderMoreComments()">Cargar mas comentarios</button>`
+                : '';
         }
 
         function renderComment(c) {
